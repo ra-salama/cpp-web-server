@@ -16,4 +16,4 @@ else()
 endif()
 
 # Define the executable output from main.cpp and Server.cpp
-add_executable(server main.cpp Server.cpp)
+add_executable(server main.cpp Server.cpp HttpRequest.cpp)
