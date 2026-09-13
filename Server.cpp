@@ -6,6 +6,9 @@
 #include <sys/socket.h>
 #include <fstream>
 #include <sstream>
+#include <thread>
+#include <chrono>
+#include "ThreadPool.h"
                                                                                               
 std::string readFileAsString(const std::string& filePath){
     std::ifstream file(filePath, std::ios::in | std::ios::binary);
@@ -39,7 +42,7 @@ std::string getMimeType(const std::string& filePath){
 }
 
 //constructor
-Server::Server(int port) : m_port(port), m_server_fd(-1){}
+Server::Server(int port) : m_port(port), m_server_fd(-1), m_threadPool(std::thread::hardware_concurrency()){}
 
 //destructor
 Server::~Server(){
@@ -94,9 +97,10 @@ void Server::run(){
             std::cerr<<"[Error] Failed to accept client connection.\n";
             continue;
         }
-
-        //pass the connected client socket to helper function
-        handleClient(client_fd);
+        // pass client_fd task to the thread pool queue
+        m_threadPool.enqueue([this, client_fd](){
+            this->handleClient(client_fd);
+        });
     }
 }
 
@@ -161,7 +165,7 @@ void Server::handleClient(int client_fd){
                 reqPath = "/index.html";
             }
 
-            std::string filePath = "../public" + reqPath;
+            std::string filePath = "./public" + reqPath;
             std::string body = readFileAsString(filePath);
 
             if (body.empty()){
@@ -173,7 +177,7 @@ void Server::handleClient(int client_fd){
                        "\r\n" + body; 
             } else {
                 std::string mimeType = getMimeType(filePath);
-                response = "HTTP/1.1 200  OK\r\n"
+                response = "HTTP/1.1 200 OK\r\n"
                         "Content-Type: " + mimeType + "\r\n"
                         "Content-Length: " + std::to_string(body.length()) + "\r\n"
                        "Connection: close\r\n"
@@ -185,6 +189,8 @@ void Server::handleClient(int client_fd){
         //writes HTTP response across network back on client's socket
         send(client_fd, response.c_str(), response.length(), 0);
     }
+     //concurrency test- sleep
+    std::this_thread::sleep_for(std::chrono::seconds(3));
     // closes client socket connection
     close(client_fd);
 }
