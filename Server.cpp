@@ -104,6 +104,11 @@ void Server::run(){
     }
 }
 
+void Server::route(const std::string& method, const std::string& path, RouteHandler handler){
+    std::string routeKey = method + " " +path;
+    m_routes[routeKey] = handler;
+}
+
 void Server::handleClient(int client_fd){
     char buffer[4096] = {0};
 
@@ -159,14 +164,14 @@ void Server::handleClient(int client_fd){
                        "\r\n" + body;
          } else {
             // Static File Serving
-            std :: string reqPath = request.path;
-
-            if(reqPath == "/"){ //standard page to load
-                reqPath = "/index.html";
+            std::string routeKey = request.method + " " + request.path;
+            if(m_routes.find(routeKey) != m_routes.end()){ //standard page to load
+                response = m_routes[routeKey](request);
             }
-
-            std::string filePath = "./public" + reqPath;
-            std::string body = readFileAsString(filePath);
+            else if (request.method == "GET"){
+                std::string reqPath = (request.path == "/") ? "/index.html" : request.path;
+                std::string filePath = "./public" + reqPath; 
+                std::string body = readFileAsString(filePath);
 
             if (body.empty()){
             std::string errorBody = "404 Page Not Found";
@@ -186,11 +191,20 @@ void Server::handleClient(int client_fd){
             
             }
         }
+        else {
+            std::string errorBody = "405 Method Not Allowed";
+            response = "HTTP/1.1 405 Method Not Allowed\r\n"
+                        "Content-Type: text/plain\r\n"
+                        "Content-Length: " + std::to_string(errorBody.length()) + "\r\n"
+                        "Connection: close\r\n"
+                        "\r\n" + errorBody;
+        }
+    }
         //writes HTTP response across network back on client's socket
         send(client_fd, response.c_str(), response.length(), 0);
     }
      //concurrency test- sleep
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+   //std::this_thread::sleep_for(std::chrono::seconds(3));
     // closes client socket connection
     close(client_fd);
 }

@@ -41,9 +41,10 @@ HttpRequest parseHttpRequest(const std::string& rawRequest){
             size_t valueStart = headerValue.find_first_not_of(" \t");//removed whitespaces
             if (valueStart != std::string::npos){
                 headerValue = headerValue.substr(valueStart);
-            } else {
-                headerValue = "";
-            }
+            // } else {
+            //     headerValue = "";
+             }
+            std::transform(headerName.begin(),headerName.end(),headerName.begin(),::tolower);
             request.headers[headerName] = headerValue;
         }
     }
